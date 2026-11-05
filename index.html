@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="sw">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ELECTRO NERVES — Advanced Medical Scanning System</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Courier New', monospace; }
+  body { background: #0a0a0a; color: #c0c0c0; overflow: hidden; height: 100vh; width: 100vw; display: flex; justify-content: center; align-items: center; }
+
+  /* ===== LOADING SCREEN ===== */
+  #loadingScreen {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: #0a0a0a; display: flex; flex-direction: column; justify-content: center; align-items: center;
+    z-index: 9999; transition: opacity 1s ease;
+  }
+  #loadingScreen h1 { font-size: 3rem; color: #ff1a1a; letter-spacing: 8px; text-shadow: 0 0 20px #ff1a1a, 0 0 40px #ff1a1a; animation: pulseGlow 1.5s infinite; }
+  #loadingScreen p { margin-top: 20px; color: #888; letter-spacing: 4px; font-size: 0.9rem; }
+  .loaderBar { width: 300px; height: 4px; background: #222; margin-top: 30px; border-radius: 2px; overflow: hidden; }
+  .loaderBar div { height: 100%; width: 0%; background: linear-gradient(90deg, #ff1a1a, #ff6666); box-shadow: 0 0 10px #ff1a1a; animation: loadBar 3s ease forwards; }
+  @keyframes loadBar { 0% { width: 0%; } 100% { width: 100%; } }
+  @keyframes pulseGlow { 0%, 100% { text-shadow: 0 0 20px #ff1a1a, 0 0 40px #ff1a1a; } 50% { text-shadow: 0 0 40px #ff1a1a, 0 0 80px #ff1a1a, 0 0 120px #ff1a1a; } }
+
+  /* ===== MAIN INTERFACE ===== */
+  #mainInterface { display: none; width: 100%; height: 100%; position: relative; background: radial-gradient(ellipse at center, #111 0%, #000 100%); }
+
+  /* Top Bar */
+  .topBar { position: absolute; top: 0; left: 0; width: 100%; height: 60px; background: rgba(15, 15, 15, 0.95); border-bottom: 2px solid #ff1a1a; display: flex; align-items: center; justify-content: space-between; padding: 0 30px; z-index: 100; box-shadow: 0 0 20px rgba(255, 26, 26, 0.3); }
+  .topBar .logo { font-size: 1.4rem; color: #ff1a1a; letter-spacing: 4px; font-weight: bold; text-shadow: 0 0 10px #ff1a1a; }
+  .topBar .status { display: flex; gap: 30px; font-size: 0.75rem; color: #888; letter-spacing: 2px; }
+  .topBar .status span { color: #ff1a1a; animation: blink 1s infinite; }
+  @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+  /* Left Panel - Vitals */
+  .leftPanel { position: absolute; top: 80px; left: 20px; width: 220px; background: rgba(15, 15, 15, 0.85); border: 1px solid #333; border-left: 3px solid #ff1a1a; padding: 15px; z-index: 50; }
+  .leftPanel h3 { color: #ff1a1a; font-size: 0.7rem; letter-spacing: 3px; margin-bottom: 15px; border-bottom: 1px solid #333; padding-bottom: 8px; }
+  .vitalItem { margin-bottom: 15px; }
+  .vitalItem label { font-size: 0.6rem; color: #666; letter-spacing: 1px; display: block; margin-bottom: 3px; }
+  .vitalItem .value { font-size: 1.1rem; color: #ff1a1a; text-shadow: 0 0 8px #ff1a1a; letter-spacing: 1px; }
+  .vitalItem .value.green { color: #00ff88; text-shadow: 0 0 8px #00ff88; }
+
+  /* Right Panel - Report */
+  .rightPanel { position: absolute; top: 80px; right: 20px; width: 340px; background: rgba(15, 15, 15, 0.9); border: 1px solid #333; border-right: 3px solid #ff1a1a; padding: 20px; z-index: 50; max-height: calc(100vh - 120px); overflow-y: auto; }
+  .rightPanel h3 { color: #ff1a1a; font-size: 0.7rem; letter-spacing: 3px; margin-bottom: 15px; border-bottom: 1px solid #333; padding-bottom: 8px; }
+  #reportContent { font-size: 0.75rem; line-height: 1.8; color: #aaa; white-space: pre-wrap; min-height: 200px; }
+  #reportContent .highlight { color: #ff1a1a; text-shadow: 0 0 5px #ff1a1a; }
+  #reportContent .green { color: #00ff88; text-shadow: 0 0 5px #00ff88; }
+
+  /* Center - Anatomy Stage */
+  .anatomyStage { position: absolute; top: 60px; left: 240px; right: 360px; bottom: 0; display: flex; justify-content: center; align-items: center; perspective: 1200px; overflow: hidden; }
+  .bodyContainer { position: relative; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; transform-style: preserve-3d; animation: bodyRotate 20s linear infinite; }
+  @keyframes bodyRotate { 0% { transform: rotateY(-15deg); } 50% { transform: rotateY(15deg); } 100% { transform: rotateY(-15deg); } }
+
+  /* SVG ya Mwili Mzima */
+  .fullBodySvg { height: 95%; max-height: 800px; filter: drop-shadow(0 0 20px rgba(255, 26, 26, 0.6)); }
+  .bodyOutline { fill: rgba(50, 50, 50, 0.4); stroke: #ff1a1a; stroke-width: 1.5; }
+
+  /* Scan Line */
+  .scanLine { position: absolute; left: 0; width: 100%; height: 4px; background: linear-gradient(90deg, transparent, #ff1a1a, #ff6666, #ff1a1a, transparent); box-shadow: 0 0 20px #ff1a1a, 0 0 40px #ff1a1a; top: 0; opacity: 0; z-index: 10; transition: opacity 0.3s; }
+  .scanLine.active { opacity: 1; }
+  .scanGlow { position: absolute; left: 0; width: 100%; height: 100%; background: linear-gradient(180deg, transparent 0%, rgba(255, 26, 26, 0.15) 50%, transparent 100%); opacity: 0; z-index: 5; pointer-events: none; transition: opacity 0.5s; }
+  .scanGlow.active { opacity: 1; }
+
+  /* ===== ORGAN VIEWER (PICHA YA KILA KIUNGO) ===== */
+  .organViewer { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.8); width: 400px; height: 400px; background: rgba(10, 10, 10, 0.95); border: 2px solid #ff1a1a; box-shadow: 0 0 60px rgba(255, 26, 26, 0.8), inset 0 0 40px rgba(255, 26, 26, 0.2); border-radius: 8px; z-index: 150; display: flex; flex-direction: column; justify-content: center; align-items: center; opacity: 0; pointer-events: none; transition: all 0.3s ease; padding: 20px; overflow: hidden; }
+  .organViewer.active { opacity: 1; transform: translate(-50%, -50%) scale(1); pointer-events: auto; }
+  .organViewer::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255, 26, 26, 0.05) 2px, rgba(255, 26, 26, 0.05) 4px); pointer-events: none; z-index: 1; }
+  .organViewer .viewerHeader { position: absolute; top: 10px; left: 15px; right: 15px; display: flex; justify-content: space-between; align-items: center; z-index: 3; font-size: 0.65rem; color: #ff1a1a; letter-spacing: 2px; text-shadow: 0 0 8px #ff1a1a; }
+  .organViewer .viewerHeader .statusDot { width: 8px; height: 8px; background: #ff1a1a; border-radius: 50%; animation: blink 0.6s infinite; box-shadow: 0 0 10px #ff1a1a; }
+
+  .organViewer .viewerImageWrapper { width: 100%; height: 250px; display: flex; justify-content: center; align-items: center; z-index: 2; position: relative; }
+  .organViewer .viewerImageWrapper::after { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(180deg, transparent 0%, rgba(255,26,26,0.3) 50%, transparent 100%); animation: scanOverlay 2s linear infinite; pointer-events: none; }
+  @keyframes scanOverlay { 0% { transform: translateY(-100%); } 100% { transform: translateY(100%); } }
+
+  /* Picha za SVG za viungo */
+  .organViewer .viewerImageSvg { max-width: 100%; max-height: 100%; object-fit: contain; filter: drop-shadow(0 0 20px rgba(255, 26, 26, 0.7)); animation: imageFadeIn 0.3s ease; }
+  @keyframes imageFadeIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
+
+  .organViewer .viewerName { font-size: 1rem; color: #ff1a1a; letter-spacing: 4px; margin-top: 10px; text-shadow: 0 0 15px #ff1a1a; z-index: 2; text-align: center; font-weight: bold; }
+  .organViewer .viewerSub { font-size: 0.65rem; color: #00ff88; letter-spacing: 2px; margin-top: 4px; text-shadow: 0 0 8px #00ff88; z-index: 2; text-align: center; }
+  .organViewer .viewerFinding { font-size: 0.65rem; color: #aaa; margin-top: 8px; text-align: center; z-index: 2; line-height: 1.4; max-width: 90%; }
+  .organViewer .cornerDeco { position: absolute; width: 20px; height: 20px; border: 2px solid #ff1a1a; z-index: 3; }
+  .organViewer .cornerDeco.tl { top: 5px; left: 5px; border-right: none; border-bottom: none; }
+  .organViewer .cornerDeco.tr { top: 5px; right: 5px; border-left: none; border-bottom: none; }
+  .organViewer .cornerDeco.bl { bottom: 5px; left: 5px; border-right: none; border-top: none; }
+  .organViewer .cornerDeco.br { bottom: 5px; right: 5px; border-left: none; border-top: none; }
+
+  /* Pads */
+  .pad { position: absolute; width: 22px; height: 22px; background: radial-gradient(circle, #555 0%, #222 100%); border: 2px solid #ff1a1a; border-radius: 50%; box-shadow: 0 0 15px #ff1a1a; z-index: 25; opacity: 0; transition: all 0.5s ease; animation: padPulse 1.2s infinite; }
+  .pad.active { opacity: 1; }
+  @keyframes padPulse { 0%, 100% { box-shadow: 0 0 15px #ff1a1a; } 50% { box-shadow: 0 0 30px #ff1a1a, 0 0 45px #ff1a1a; } }
+  .pad::after { content: ''; position: absolute; top: 50%; left: 50%; width: 6px; height: 6px; background: #ff1a1a; border-radius: 50%; transform: translate(-50%, -50%); box-shadow: 0 0 10px #ff1a1a; }
+
+  /* ECG Wave */
+  .ecgContainer { position: absolute; bottom: 20px; left: 240px; right: 360px; height: 80px; background: rgba(10, 10, 10, 0.9); border: 1px solid #333; border-top: 2px solid #ff1a1a; z-index: 50; overflow: hidden; }
+  .ecgContainer canvas { width: 100%; height: 100%; }
+  .ecgContainer .ecgLabel { position: absolute; top: 5px; left: 10px; font-size: 0.6rem; color: #ff1a1a; letter-spacing: 2px; z-index: 2; }
+
+  /* Bottom Status Bar */
+  .bottomBar { position: absolute; bottom: 0; left: 0; width: 100%; height: 30px; background: rgba(15, 15, 15, 0.95); border-top: 1px solid #333; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; font-size: 0.6rem; color: #666; letter-spacing: 2px; z-index: 100; }
+  .bottomBar .blink { color: #ff1a1a; animation: blink 1s infinite; }
+
+  /* Start Button */
+  #startBtn { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); padding: 18px 50px; background: rgba(0,0,0,0.8); border: 2px solid #ff1a1a; color: #ff1a1a; font-size: 1rem; letter-spacing: 6px; cursor: pointer; z-index: 200; transition: all 0.3s; font-family: 'Courier New', monospace; text-shadow: 0 0 10px #ff1a1a; box-shadow: 0 0 20px rgba(255, 26, 26, 0.3); }
+  #startBtn:hover { background: #ff1a1a; color: #000; box-shadow: 0 0 40px #ff1a1a, 0 0 80px #ff1a1a; }
+  #startBtn:disabled { display: none; /* Inatoweka kabisa inapobonyezwa */ }
+
+  /* Scrollbar */
+  .rightPanel::-webkit-scrollbar { width: 5px; }
+  .rightPanel::-webkit-scrollbar-track { background: #111; }
+  .rightPanel::-webkit-scrollbar-thumb { background: #ff1a1a; border-radius: 3px; }
+
+  /* Corner decorations */
+  .corner { position: absolute; width: 30px; height: 30px; border: 2px solid #ff1a1a; opacity: 0.5; z-index: 60; }
+  .corner.tl { top: 70px; left: 10px; border-right: none; border-bottom: none; }
+  .corner.tr { top: 70px; right: 10px; border-left: none; border-bottom: none; }
+  .corner.bl { bottom: 40px; left: 10px; border-right: none; border-top: none; }
+  .corner.br { bottom: 40px; right: 10px; border-left: none; border-top: none; }
+
+</style>
+</head>
+<body>
+
+<!-- LOADING SCREEN -->
+<div id="loadingScreen">
+  <h1>ELECTRO NERVES</h1>
+  <p>ADVANCED MEDICAL SCANNING SYSTEM</p>
+  <div class="loaderBar"><div></div></div>
+  <p style="margin-top: 20px; font-size: 0.7rem; color: #444;">INITIALIZING PRO 19...</p>
+</div>
+
+<!-- MAIN INTERFACE -->
+<div id="mainInterface">
+
+  <div class="topBar">
+    <div class="logo">ELECTRO NERVES</div>
+    <div class="status">
+      <div>PRO 19 | <span>ONLINE</span></div>
+      <div>EN-2024-001</div>
+    </div>
+  </div>
+
+  <div class="corner tl"></div>
+  <div class="corner tr"></div>
+  <div class="corner bl"></div>
+  <div class="corner br"></div>
+
+  <!-- Left Panel - Vitals -->
+  <div class="leftPanel">
+    <h3>VITALS / VIPIMO</h3>
+    <div class="vitalItem"><label>HEART RATE</label><div class="value" id="heartRate">-- BPM</div></div>
+    <div class="vitalItem"><label>BLOOD PRESSURE</label><div class="value green" id="bloodPressure">--/--</div></div>
+    <div class="vitalItem"><label>BODY TEMP</label><div class="value green" id="bodyTemp">--.- °C</div></div>
+    <div class="vitalItem"><label>OXYGEN (SpO2)</label><div class="value green" id="oxygen">--%</div></div>
+    <div class="vitalItem"><label>SCAN STATUS</label><div class="value" id="scanStatus" style="font-size: 0.8rem;">STANDBY</div></div>
+  </div>
+
+  <!-- Right Panel - Report -->
+  <div class="rightPanel">
+    <h3>PATIENT REPORT / RIPOTI</h3>
+    <div id="reportContent">
+      <span class="highlight">ELECTRO NERVES PRO 19</span>
+      <span class="highlight">======================</span>
+
+      Inasubiri scan kuanza...
+      Bonyeza START SCAN kuendelea.
+    </div>
+  </div>
+
+  <!-- Center - Anatomy Stage -->
+  <div class="anatomyStage" id="anatomyStage">
+    <div class="bodyContainer" id="bodyContainer">
+      
+      <!-- SVG YA MWILI MZIMA (INACHORWA KWA CODE, HAIHITAJI MTANDAO) -->
+      <svg class="fullBodySvg" viewBox="0 0 200 500" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <radialGradient id="bodyGrad" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#2a2a2a"/>
+            <stop offset="100%" stop-color="#111111"/>
+          </radialGradient>
+          <filter id="glow">
+            <feGaussianBlur stdDeviation="3" result="blur"/>
+            <feMerge>
+              <feMergeNode in="blur"/>
+              <feMergeNode in="SourceGraphic"/>
+            </feMerge>
+          </filter>
+        </defs>
+
+        <!-- Kichwa -->
+        <ellipse cx="100" cy="40" rx="28" ry="34" fill="url(#bodyGrad)" stroke="#ff1a1a" stroke-width="2" filter="url(#glow)"/>
+        <!-- Shingo -->
+        <rect x="90" y="70" width="20" height="15" fill="url(#bodyGrad)" stroke="#ff1a1a" stroke-width="1"/>
+        <!-- Mabega -->
+        <path d="M 70 85 Q 60 90 55 110 L 55 130 L 145 130 L 145 110 Q 140 90 130 85 Z" fill="url(#bodyGrad)" stroke="#ff1a1a" stroke-width="2"/>
+        <!-- Kifua na Tumbo -->
+        <path d="M 60 130 L 60 250 Q 60 280 70 290 L 130 290 Q 140 280 140 250 L 140 130 Z" fill="url(#bodyGrad)" stroke="#ff1a1a" stroke-width="2"/>
+        <!-- Mkono wa Kushoto -->
+        <path d="M 55 110 Q 40 130 35 170 L 30 230 Q 28 250 32 260 L 40 260 Q 45 250 45 230 L 50 170 Q 52 140 60 125 Z" fill="url(#bodyGrad)" stroke="#ff1a1a" stroke-width="1.5"/>
+        <!-- Mkono wa Kulia -->
+        <path d="M 145 110 Q 160 130 165 170 L 170 230 Q 172 250 168 260 L 160 260 Q 155 250 155 230 L 150 170 Q 148 140 140 125 Z" fill="url(#bodyGrad)" stroke="#ff1a1a" stroke-width="1.5"/>
+        <!-- Mguu wa Kushoto -->
+        <path d="M 70 290 L 68 380 Q 66 420 64 450 L 60 480 Q 58 490 65 490 L 78 490 Q 82 490 80 480 L 82 450 L 88 380 L 90 290 Z" fill="url(#bodyGrad)" stroke="#ff1a1a" stroke-width="1.5"/>
+        <!-- Mguu wa Kulia -->
+        <path d="M 130 290 L 132 380 Q 134 420 136 450 L 140 480 Q 142 490 135 490 L 122 490 Q 118 490 120 480 L 118 450 L 112 380 L 110 290 Z" fill="url(#bodyGrad)" stroke="#ff1a1a" stroke-width="1.5"/>
+
+        <!-- Viungo vya Ndani (Kwa Muonekano) -->
+        <!-- Moyo -->
+        <ellipse cx="90" cy="165" rx="12" ry="14" fill="#ff1a1a" opacity="0.4" stroke="#ff1a1a" stroke-width="1"/>
+        <!-- Mapafu -->
+        <ellipse cx="80" cy="160" rx="14" ry="22" fill="#333" opacity="0.5" stroke="#ff1a1a" stroke-width="1"/>
+        <ellipse cx="120" cy="160" rx="14" ry="22" fill="#333" opacity="0.5" stroke="#ff1a1a" stroke-width="1"/>
+        <!-- Maini -->
+        <path d="M 70 200 Q 100 190 125 200 L 120 220 Q 100 225 75 220 Z" fill="#333" opacity="0.5" stroke="#ff1a1a" stroke-width="1"/>
+        <!-- Tumbo -->
+        <ellipse cx="95" cy="235" rx="18" ry="12" fill="#333" opacity="0.5" stroke="#ff1a1a" stroke-width="1"/>
+        <!-- Figo -->
+        <ellipse cx="78" cy="245" rx="8" ry="14" fill="#333" opacity="0.5" stroke="#ff1a1a" stroke-width="1"/>
+        <ellipse cx="122" cy="245" rx="8" ry="14" fill="#333" opacity="0.5" stroke="#ff1a1a" stroke-width="1"/>
+      </svg>
+
+      <!-- Scan Line & Glow -->
+      <div class="scanLine" id="scanLine"></div>
+      <div class="scanGlow" id="scanGlow"></div>
+
+      <!-- ===== ORGAN VIEWER ===== -->
+      <div class="organViewer" id="organViewer">
+        <div class="cornerDeco tl"></div>
+        <div class="cornerDeco tr"></div>
+        <div class="cornerDeco bl"></div>
+        <div class="cornerDeco br"></div>
+        
+        <div class="viewerHeader">
+          <div>SCAN TARGET</div>
+          <div class="statusDot"></div>
+        </div>
+
+        <div class="viewerImageWrapper">
+          <div id="viewerSvgContainer"></div>
+        </div>
+
+        <div class="viewerName" id="viewerName">HEART / MOYO</div>
+        <div class="viewerSub" id="viewerSub">STATUS: ANALYZED</div>
+        <div class="viewerFinding" id="viewerFinding">Upungufu mdogo wa damu...</div>
+      </div>
+
+      <!-- Pads -->
+      <div class="pad" id="pad1" style="top: 30%; left: 20%;"></div>
+      <div class="pad" id="pad2" style="top: 30%; right: 20%;"></div>
+      <div class="pad" id="pad3" style="top: 50%; left: 15%;"></div>
+      <div class="pad" id="pad4" style="top: 50%; right: 15%;"></div>
+      <div class="pad" id="pad5" style="top: 65%; left: 22%;"></div>
+      <div class="pad" id="pad6" style="top: 65%; right: 22%;"></div>
+    </div>
+  </div>
+
+  <!-- ECG Wave -->
+  <div class="ecgContainer">
+    <div class="ecgLabel">ECG / HEART WAVE</div>
+    <canvas id="ecgCanvas"></canvas>
+  </div>
+
+  <!-- Bottom Bar -->
+  <div class="bottomBar">
+    <div>SYSTEM: <span class="blink">●</span> ACTIVE</div>
+    <div>PRO 19 | ELECTRO NERVES © 2024</div>
+    <div>SCAN MODE: FULL BODY</div>
+  </div>
+
+  <!-- Start Button -->
+  <button id="startBtn">START SCAN</button>
+
+</div>
+
+<script>
+// ============================================================
+// ELECTRO NERVES — JAVASCRIPT ENGINE (PRO 19)
+// ============================================================
+
+const state = { scanning: false, audioCtx: null };
+
+const loadingScreen = document.getElementById('loadingScreen');
+const mainInterface = document.getElementById('mainInterface');
+const startBtn = document.getElementById('startBtn');
+const scanLine = document.getElementById('scanLine');
+const scanGlow = document.getElementById('scanGlow');
+const reportContent = document.getElementById('reportContent');
+const scanStatus = document.getElementById('scanStatus');
+const heartRate = document.getElementById('heartRate');
+const bloodPressure = document.getElementById('bloodPressure');
+const bodyTemp = document.getElementById('bodyTemp');
+const oxygen = document.getElementById('oxygen');
+const ecgCanvas = document.getElementById('ecgCanvas');
+const ecgCtx = ecgCanvas.getContext('2d');
+
+const organViewer = document.getElementById('organViewer');
+const viewerSvgContainer = document.getElementById('viewerSvgContainer');
+const viewerName = document.getElementById('viewerName');
+const viewerSub = document.getElementById('viewerSub');
+const viewerFinding = document.getElementById('viewerFinding');
+
+// ============================================================
+// SVG ZA VIUNGO (ZINACHORWA KWA CODE - HAZITEGEMEI MTANDAO)
+// ============================================================
+const svgColors = { stroke: '#ff1a1a', fill: 'rgba(255, 26, 26, 0.1)' };
+
+const organSVGs = {
+  brain: `<svg viewBox="0 0 100 100" class="viewerImageSvg"><path d="M20,50 Q10,30 30,20 Q50,10 70,20 Q90,30 80,50 Q85,70 70,80 Q50,95 30,80 Q15,70 20,50 Z" fill="${svgColors.fill}" stroke="${svgColors.stroke}" stroke-width="2"/><path d="M50,20 L50,80 M30,30 Q40,50 30,70 M70,30 Q60,50 70,70" fill="none" stroke="${svgColors.stroke}" stroke-width="1.5"/></svg>`,
+  heart: `<svg viewBox="0 0 100 100" class="viewerImageSvg"><path d="M50,85 C50,85 15,55 15,35 C15,15 40,10 50,30 C60,10 85,15 85,35 C85,55 50,85 50,85 Z" fill="${svgColors.fill}" stroke="${svgColors.stroke}" stroke-width="2"/><path d="M30,35 Q40,25 50,45 Q60,25 70,35" fill="none" stroke="${svgColors.stroke}" stroke-width="1.5"/></svg>`,
+  lungs: `<svg viewBox="0 0 100 100" class="viewerImageSvg"><path d="M45,20 L45,40 Q30,40 20,60 Q10,80 25,90 Q40,95 45,70 L45,60" fill="${svgColors.fill}" stroke="${svgColors.stroke}" stroke-width="2"/><path d="M55,20 L55,40 Q70,40 80,60 Q90,80 75,90 Q60,95 55,70 L55,60" fill="${svgColors.fill}" stroke="${svgColors.stroke}" stroke-width="2"/><rect x="48" y="10" width="4" height="30" fill="${svgColors.stroke}"/></svg>`,
+  liver: `<svg viewBox="0 0 100 100" class="viewerImageSvg"><path d="M20,40 Q50,20 80,30 Q90,50 70,70 Q40,80 20,60 Z" fill="${svgColors.fill}" stroke="${svgColors.stroke}" stroke-width="2"/><path d="M30,45 Q50,35 70,45" fill="none" stroke="${svgColors.stroke}" stroke-width="1.5"/></svg>`,
+  stomach: `<svg viewBox="0 0 100 100" class="viewerImageSvg"><path d="M40,20 Q70,20 70,50 Q70,80 40,80 Q20,80 20,60 Q20,30 40,20 Z" fill="${svgColors.fill}" stroke="${svgColors.stroke}" stroke-width="2"/><path d="M30,40 Q50,50 60,40" fill="none" stroke="${svgColors.stroke}" stroke-width="1.5"/></svg>`,
+  pancreas: `<svg viewBox="0 0 100 100" class="viewerImageSvg"><path d="M20,60 Q40,30 70,40 Q80,50 70,60 Q50,70 20,60 Z" fill="${svgColors.fill}" stroke="${svgColors.stroke}" stroke-width="2"/><circle cx="70" cy="45" r="5" fill="${svgColors.stroke}"/></svg>`,
+  spleen: `<svg viewBox="0 0 100 100" class="viewerImageSvg"><ellipse cx="50" cy="50" rx="30" ry="20" fill="${svgColors.fill}" stroke="${svgColors.stroke}" stroke-width="2" transform="rotate(-30 50 50)"/></svg>`,
+  kidneys: `<svg viewBox="0 0 100 100" class="viewerImageSvg"><path d="M30,30 Q50,30 50,50 Q50,70 30,70 Q20,50 30,30 Z" fill="${svgColors.fill}" stroke="${svgColors.stroke}" stroke-width="2"/><path d="M70,30 Q50,30 50,50 Q50,70 70,70 Q80,50 70,30 Z" fill="${svgColors.fill}" stroke="${svgColors.stroke}" stroke-width="2"/></svg>`,
+  small_intestine: `<svg viewBox="0 0 100 100" class="viewerImageSvg"><path d="M20,30 Q50,10 80,30 Q50,50 20,70 Q50,90 80,70" fill="none" stroke="${svgColors.stroke}" stroke-width="6" stroke-linecap="round"/></svg>`,
+  large_intestine: `<svg viewBox="0 0 100 100" class="viewerImageSvg"><path d="M20,20 L80,20 L80,80 L20,80 L20,40 L60,40 L60,60 L40,60" fill="none" stroke="${svgColors.stroke}" stroke-width="8" stroke-linejoin="round"/></svg>`,
+  bladder: `<svg viewBox="0 0 100 100" class="viewerImageSvg"><path d="M50,20 Q80,20 80,50 Q80,80 50,80 Q20,80 20,50 Q20,20 50,20 Z" fill="${svgColors.fill}" stroke="${svgColors.stroke}" stroke-width="2"/><path d="M50,80 L50,95" stroke="${svgColors.stroke}" stroke-width="2"/></svg>`,
+  muscles: `<svg viewBox="0 0 100 100" class="viewerImageSvg"><path d="M30,20 Q50,10 70,20 Q80,40 70,80 Q50,90 30,80 Q20,40 30,20 Z" fill="${svgColors.fill}" stroke="${svgColors.stroke}" stroke-width="2"/><path d="M50,20 L50,80" stroke="${svgColors.stroke}" stroke-width="2"/><path d="M35,40 Q50,50 65,40 M35,60 Q50,70 65,60" stroke="${svgColors.stroke}" stroke-width="1.5" fill="none"/></svg>`
+};
+
+const organs = [
+  { id: 'brain', name: 'BRAIN / UBONGO', finding: 'Ubongo unafanya kazi vizuri. Hakuna dalili za shida.' },
+  { id: 'heart', name: 'HEART / MOYO', finding: 'Upungufu mdogo wa damu kwenye moyo. Inashauriwa kuonana na daktari wa moyo.' },
+  { id: 'lungs', name: 'LUNGS / MAPAFU', finding: 'Mapafu yanafanya kazi vizuri. Hakuna dalili za ugonjwa.' },
+  { id: 'liver', name: 'LIVER / MAIN', finding: 'Maini yanafanya kazi vizuri. Hakuna dalili za shida.' },
+  { id: 'stomach', name: 'STOMACH / TUMBO', finding: 'Tumbo linafanya kazi vizuri. Hakuna vidonda vilivyobainika.' },
+  { id: 'pancreas', name: 'PANCREAS / KONGOSHO', finding: 'Pancreas inafanya kazi vizuri. Hakuna dalili za shida.' },
+  { id: 'spleen', name: 'SPLEEN / WENGU', finding: 'Wengu unafanya kazi vizuri. Hakuna shida iliyobainika.' },
+  { id: 'kidneys', name: 'KIDNEYS / FIGO', finding: 'Figo ya kushoto inaonekana na shida ndogo ya mawe. Inashauriwa kunywa maji mengi.' },
+  { id: 'small_intestine', name: 'SMALL INTESTINE / UTUMBO MDOGO', finding: 'Utumbo mdogo unafanya kazi vizuri. Hakuna dalili za shida.' },
+  { id: 'large_intestine', name: 'LARGE INTESTINE / UTUMBO MKUBWA', finding: 'Utumbo mkubwa unafanya kazi vizuri. Hakuna shida iliyobainika.' },
+  { id: 'bladder', name: 'BLADDER / KIBOFU CHA MKOJO', finding: 'Kibofu cha mkojo kinafanya kazi vizuri. Hakuna dalili za shida.' },
+  { id: 'muscles', name: 'MUSCLES / MISULI', finding: 'Misuli inafanya kazi vizuri. Hakuna shida iliyobainika.' }
+];
+
+// ============================================================
+// INIT
+// ============================================================
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    loadingScreen.style.opacity = '0';
+    setTimeout(() => {
+      loadingScreen.style.display = 'none';
+      mainInterface.style.display = 'block';
+      initECG();
+    }, 1000);
+  }, 3000);
+});
+
+// ============================================================
+// AUDIO
+// ============================================================
+function initAudio() { if (!state.audioCtx) { state.audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } }
+function playBeep(freq = 880, duration = 0.1, vol = 0.15) {
+  if (!state.audioCtx) return;
+  const osc = state.audioCtx.createOscillator(); const gain = state.audioCtx.createGain();
+  osc.frequency.value = freq; osc.type = 'sine';
+  gain.gain.setValueAtTime(vol, state.audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, state.audioCtx.currentTime + duration);
+  osc.connect(gain); gain.connect(state.audioCtx.destination);
+  osc.start(); osc.stop(state.audioCtx.currentTime + duration);
+}
+function playHeartbeat() { if (!state.audioCtx) return; playBeep(60, 0.12, 0.3); setTimeout(() => playBeep(50, 0.1, 0.2), 150); }
+function playScanTone() {
+  if (!state.audioCtx) return;
+  const osc = state.audioCtx.createOscillator(); const gain = state.audioCtx.createGain();
+  osc.frequency.value = 1200; osc.type = 'sine';
+  gain.gain.setValueAtTime(0.05, state.audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, state.audioCtx.currentTime + 0.15);
+  osc.connect(gain); gain.connect(state.audioCtx.destination);
+  osc.start(); osc.stop(state.audioCtx.currentTime + 0.15);
+}
+
+// ============================================================
+// ECG
+// ============================================================
+let ecgX = 0; let ecgData = [];
+function initECG() { ecgCanvas.width = ecgCanvas.offsetWidth; ecgCanvas.height = ecgCanvas.offsetHeight; animateECG(); }
+function animateECG() {
+  ecgCtx.fillStyle = 'rgba(10, 10, 10, 0.15)'; ecgCtx.fillRect(0, 0, ecgCanvas.width, ecgCanvas.height);
+  ecgCtx.strokeStyle = 'rgba(255, 26, 26, 0.08)'; ecgCtx.lineWidth = 1;
+  for (let x = 0; x < ecgCanvas.width; x += 30) { ecgCtx.beginPath(); ecgCtx.moveTo(x, 0); ecgCtx.lineTo(x, ecgCanvas.height); ecgCtx.stroke(); }
+  if (!state.scanning) {
+    ecgCtx.strokeStyle = 'rgba(255, 26, 26, 0.3)'; ecgCtx.lineWidth = 2;
+    ecgCtx.beginPath(); ecgCtx.moveTo(0, ecgCanvas.height / 2); ecgCtx.lineTo(ecgCanvas.width, ecgCanvas.height / 2); ecgCtx.stroke();
+    requestAnimationFrame(animateECG); return;
+  }
+  const mid = ecgCanvas.height / 2; const t = Date.now() / 1000; const beat = (t % 1.2) / 1.2;
+  let y = mid;
+  if (beat < 0.1) y = mid; else if (beat < 0.15) y = mid - 8; else if (beat < 0.2) y = mid - 35; else if (beat < 0.25) y = mid - 8; else if (beat < 0.3) y = mid; else if (beat < 0.35) y = mid + 5; else if (beat < 0.4) y = mid - 50; else if (beat < 0.45) y = mid + 15; else if (beat < 0.55) y = mid; else if (beat < 0.6) y = mid - 20; else if (beat < 0.65) y = mid; else y = mid;
+  ecgData.push({ x: ecgX, y: y }); if (ecgData.length > 200) ecgData.shift();
+  ecgCtx.strokeStyle = '#ff1a1a'; ecgCtx.lineWidth = 2; ecgCtx.shadowColor = '#ff1a1a'; ecgCtx.shadowBlur = 10;
+  ecgCtx.beginPath();
+  ecgData.forEach((p, i) => { const drawX = ecgCanvas.width - (ecgData.length - i) * 3; if (i === 0) ecgCtx.moveTo(drawX, p.y); else ecgCtx.lineTo(drawX, p.y); });
+  ecgCtx.stroke(); ecgCtx.shadowBlur = 0;
+  ecgX += 3; if (ecgX > 200) ecgX = 0;
+  requestAnimationFrame(animateECG);
+}
+
+function animateVitals() {
+  if (!state.scanning) return;
+  heartRate.textContent = Math.floor(68 + Math.random() * 8) + ' BPM';
+  bloodPressure.textContent = '120/80'; bodyTemp.textContent = '36.6 °C'; oxygen.textContent = '98%';
+  setTimeout(animateVitals, 1000);
+}
+
+// ============================================================
+// MAIN SCAN SEQUENCE
+// ============================================================
+async function startScan() {
+  if (state.scanning) return;
+  state.scanning = true; initAudio();
+  startBtn.disabled = true; startBtn.textContent = 'SCANNING...'; // Kitufe kinatoweka mara moja kwa sababu ya CSS
+
+  reportContent.innerHTML = '<span class="highlight">ELECTRO NERVES PRO 19</span>\n<span class="highlight">======================</span>\n\n<span class="green">PATIENT DATA:</span>\nJina: Maali\nID: EN-2024-001\nTarehe: 15/03/1985\n\n<span class="highlight">SCANNING IN PROGRESS...</span>\n';
+  scanStatus.textContent = 'SCANNING'; scanStatus.style.color = '#ff1a1a'; ecgData = [];
+
+  const pads = document.querySelectorAll('.pad');
+  pads.forEach((pad, i) => { setTimeout(() => pad.classList.add('active'), i * 200); });
+
+  scanLine.classList.add('active'); scanGlow.classList.add('active');
+
+  const stageHeight = document.getElementById('anatomyStage').offsetHeight;
+  const duration = 6000; const startTime = Date.now();
+
+  const scanAnim = () => {
+    const elapsed = Date.now() - startTime; const progress = Math.min(elapsed / duration, 1);
+    const currentY = stageHeight * progress; scanLine.style.top = currentY + 'px';
+    scanGlow.style.background = `linear-gradient(180deg, transparent ${(progress*100)-10}%, rgba(255,26,26,0.15) ${progress*100}%, transparent ${(progress*100)+10}%)`;
+    if (progress < 1 && state.scanning) { requestAnimationFrame(scanAnim); } else { scanLine.classList.remove('active'); scanGlow.classList.remove('active'); }
+  };
+  requestAnimationFrame(scanAnim);
+
+  const toneInterval = setInterval(() => { if (!state.scanning) { clearInterval(toneInterval); return; } playScanTone(); }, 400);
+  const heartbeatInterval = setInterval(() => { if (!state.scanning) { clearInterval(heartbeatInterval); return; } playHeartbeat(); }, 1200);
+
+  animateVitals();
+
+  let currentOrganIndex = 0;
+
+  function showNextOrgan() {
+    if (!state.scanning || currentOrganIndex >= organs.length) { finishScan(); return; }
+    const organ = organs[currentOrganIndex];
+
+    playBeep(1500, 0.15, 0.25); setTimeout(() => playBeep(1800, 0.1, 0.2), 100);
+
+    viewerSvgContainer.innerHTML = organSVGs[organ.id] || organSVGs.heart;
+    viewerName.textContent = organ.name;
+    viewerSub.textContent = 'STATUS: ANALYZED';
+    viewerFinding.textContent = organ.finding;
+
+    organViewer.classList.add('active');
+    appendReport(`\n\n<span class="highlight">>> SCANNING: ${organ.name}</span>\n<span class="green">STATUS: ANALYZED</span>\n${organ.finding}`);
+
+    setTimeout(() => {
+      organViewer.classList.remove('active');
+      setTimeout(() => { currentOrganIndex++; if (state.scanning) { showNextOrgan(); } }, 500);
+    }, 2000); // Imepunguzwa kidogo ili isikae sana
+  }
+
+  setTimeout(() => { showNextOrgan(); }, 1500);
+
+  function finishScan() {
+    if (!state.scanning) return; state.scanning = false;
+    clearInterval(toneInterval); clearInterval(heartbeatInterval);
+    scanStatus.textContent = 'COMPLETE'; scanStatus.style.color = '#00ff88';
+    startBtn.textContent = 'SCAN COMPLETE'; startBtn.disabled = false;
+    document.querySelectorAll('.pad').forEach(pad => pad.classList.remove('active'));
+    appendReport(`\n\n<span class="highlight">======================</span>\n<span class="highlight">SCAN COMPLETE / SCAN IMEKAMILIKA</span>\n<span class="highlight">======================</span>\n\n<span class="green">HITIMISHO / CONCLUSION:</span>\nMgonjwa amechunguzwa kikamilifu. Matokeo yameonyesha\nshida ndogo kwenye moyo na figo ya kushoto.\nInashauriwa kuonana na daktari wa moyo na figo\nkwa uchunguzi zaidi.\n\n<span class="green">RECOMMENDATION:</span>\n- Kupunguza chumvi kwenye chakula\n- Kunywa maji mengi\n- Mazoezi mepesi kila siku\n- Kurudi kwa uchunguzi baada ya wiki 2\n\n<span class="highlight">-- ELECTRO NERVES PRO 19 --</span>\n<span class="highlight">-- MWISHO WA RIPOTI --</span>`);
+  }
+}
+
+function appendReport(text) {
+  const lines = text.split('\n'); let i = 0;
+  const interval = setInterval(() => {
+    if (i >= lines.length) { clearInterval(interval); return; }
+    const line = lines[i];
+    if (line.trim() === '') { reportContent.innerHTML += '<br>'; } else {
+      const span = document.createElement('div'); span.innerHTML = line;
+      span.style.opacity = '0'; span.style.transition = 'opacity 0.3s'; reportContent.appendChild(span);
+      setTimeout(() => { span.style.opacity = '1'; }, 50);
+    }
+    reportContent.scrollTop = reportContent.scrollHeight; i++;
+  }, 50);
+}
+
+startBtn.addEventListener('click', startScan);
+window.addEventListener('resize', () => { ecgCanvas.width = ecgCanvas.offsetWidth; ecgCanvas.height = ecgCanvas.offsetHeight; });
+
+</script>
+</body>
+</html>
